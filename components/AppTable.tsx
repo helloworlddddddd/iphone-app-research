@@ -58,7 +58,7 @@ export default function AppTable({ apps }: Props) {
         <tbody className="divide-y divide-gray-100">
           {sorted.map((app, i) => (
             <tr key={app.trackId} className="hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-3 text-gray-400 text-sm font-medium">{i + 1}</td>
+              <td className="px-4 py-3 text-gray-400 text-sm font-medium">{app.rankingPosition ?? '-'}</td>
               <td className="px-4 py-3">
                 <div className="flex items-start gap-3">
                   <img

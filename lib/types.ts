@@ -63,6 +63,7 @@ export type AppRecord = {
 
   // 独自計算フィールド（DBのスナップショット差分から算出）
   recentReviewIncrease: number
+  rankingPosition: number | null
 }
 
 export type SortKey = keyof Pick<

@@ -16,6 +16,7 @@ async function fetchApps(genreId: number): Promise<AppRecord[]> {
     .from('app_snapshots')
     .select(`
       track_id,
+      ranking_position,
       user_rating_count,
       average_user_rating,
       user_rating_count_for_current_version,
@@ -117,6 +118,7 @@ async function fetchApps(genreId: number): Promise<AppRecord[]> {
       trackContentRating: app.track_content_rating,
       advisories: app.advisories,
       recentReviewIncrease,
+      rankingPosition: row.ranking_position ?? null,
     } satisfies AppRecord
   })
 }

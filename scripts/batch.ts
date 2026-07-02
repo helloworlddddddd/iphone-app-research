@@ -57,11 +57,12 @@ function toDbRow(app: ItunesApp) {
   }
 }
 
-function toSnapshotRow(app: ItunesApp, capturedAt: string, genreId: number) {
+function toSnapshotRow(app: ItunesApp, capturedAt: string, genreId: number, rankingPosition: number) {
   return {
     track_id:                                   app.trackId,
     captured_at:                                capturedAt,
     genre_id:                                   genreId,
+    ranking_position:                           rankingPosition,
     user_rating_count:                          app.userRatingCount ?? null,
     average_user_rating:                        app.averageUserRating ?? null,
     user_rating_count_for_current_version:      app.userRatingCountForCurrentVersion ?? null,
@@ -109,6 +110,9 @@ async function processGenre(
   const trackIds = await fetchRankingIds(genre.id)
   console.log(`  RSS: ${trackIds.length} 件`)
 
+  // RSSの返却順がランキング順位
+  const rankMap = new Map(trackIds.map((id, i) => [id, i + 1]))
+
   const apps = await batchLookup(trackIds)
   const paidApps = apps.filter((a) => a.price > 0)
   console.log(`  iTunes: ${apps.length} 件 / 有料: ${paidApps.length} 件`)
@@ -122,7 +126,7 @@ async function processGenre(
 
   const { error: snapErr } = await supabase
     .from('app_snapshots')
-    .upsert(paidApps.map((a) => toSnapshotRow(a, today, genre.id)), {
+    .upsert(paidApps.map((a) => toSnapshotRow(a, today, genre.id, rankMap.get(a.trackId) ?? 0)), {
       onConflict: 'track_id,captured_at,genre_id',
     })
   if (snapErr) throw snapErr
