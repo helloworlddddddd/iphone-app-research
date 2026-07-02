@@ -12,6 +12,37 @@ const SORT_COLUMNS: { key: SortKey; label: string; defaultDir: SortDir }[] = [
   { key: 'averageUserRating', label: '評価', defaultDir: 'desc' },
 ]
 
+function downloadJson(apps: AppRecord[], sortKey: SortKey, sortDir: SortDir) {
+  const sorted = [...apps].sort((a, b) => {
+    const av = a[sortKey] ?? Infinity
+    const bv = b[sortKey] ?? Infinity
+    const diff = (av as number) - (bv as number)
+    return sortDir === 'desc' ? -diff : diff
+  })
+  const data = sorted.map((app) => ({
+    rankingPosition: app.rankingPosition,
+    trackName: app.trackName,
+    sellerName: app.sellerName,
+    description: app.description,
+    price: app.price,
+    formattedPrice: app.formattedPrice,
+    userRatingCount: app.userRatingCount,
+    averageUserRating: app.averageUserRating,
+    userRatingCountForCurrentVersion: app.userRatingCountForCurrentVersion,
+    averageUserRatingForCurrentVersion: app.averageUserRatingForCurrentVersion,
+    recentReviewIncrease: app.recentReviewIncrease,
+    releaseDate: app.releaseDate,
+    currentVersionReleaseDate: app.currentVersionReleaseDate,
+  }))
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `app-research-${new Date().toISOString().slice(0, 10)}.json`
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function AppTable({ apps }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('rankingPosition')
   const [sortDir, setSortDir] = useState<SortDir>('asc')
@@ -38,6 +69,15 @@ export default function AppTable({ apps }: Props) {
   }
 
   return (
+    <div>
+      <div className="flex justify-end mb-2">
+        <button
+          onClick={() => downloadJson(apps, sortKey, sortDir)}
+          className="px-3 py-1.5 text-sm border border-gray-300 rounded-md text-gray-600 hover:bg-gray-100 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+        >
+          JSONダウンロード
+        </button>
+      </div>
     <div className="overflow-x-auto rounded-lg border border-gray-200">
       <table className="min-w-full text-sm">
         <thead>
@@ -64,7 +104,7 @@ export default function AppTable({ apps }: Props) {
         </thead>
         <tbody className="divide-y divide-gray-100">
           {sorted.map((app) => (
-            <tr key={app.trackId} className="hover:bg-gray-50 transition-colors">
+            <tr key={app.trackId} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
               <td className="px-4 py-3 text-gray-400 text-sm font-medium">{app.rankingPosition ?? '-'}</td>
               <td className="px-4 py-3">
                 <div className="flex items-start gap-3">
@@ -93,6 +133,7 @@ export default function AppTable({ apps }: Props) {
           ))}
         </tbody>
       </table>
+    </div>
     </div>
   )
 }
