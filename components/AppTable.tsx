@@ -5,28 +5,30 @@ import type { AppRecord, SortKey, SortDir } from '@/lib/types'
 
 type Props = { apps: AppRecord[] }
 
-const SORT_COLUMNS: { key: SortKey; label: string }[] = [
-  { key: 'userRatingCount', label: '総レビュー数' },
-  { key: 'recentReviewIncrease', label: '直近14日増加' },
-  { key: 'price', label: '価格' },
-  { key: 'averageUserRating', label: '評価' },
+const SORT_COLUMNS: { key: SortKey; label: string; defaultDir: SortDir }[] = [
+  { key: 'userRatingCount', label: '総レビュー数', defaultDir: 'desc' },
+  { key: 'recentReviewIncrease', label: '直近14日増加', defaultDir: 'desc' },
+  { key: 'price', label: '価格', defaultDir: 'desc' },
+  { key: 'averageUserRating', label: '評価', defaultDir: 'desc' },
 ]
 
 export default function AppTable({ apps }: Props) {
-  const [sortKey, setSortKey] = useState<SortKey>('userRatingCount')
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [sortKey, setSortKey] = useState<SortKey>('rankingPosition')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
 
-  const handleSort = (key: SortKey) => {
+  const handleSort = (key: SortKey, defaultDir: SortDir = 'desc') => {
     if (sortKey === key) {
       setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'))
     } else {
       setSortKey(key)
-      setSortDir('desc')
+      setSortDir(defaultDir)
     }
   }
 
   const sorted = [...apps].sort((a, b) => {
-    const diff = a[sortKey] - b[sortKey]
+    const av = a[sortKey] ?? Infinity
+    const bv = b[sortKey] ?? Infinity
+    const diff = (av as number) - (bv as number)
     return sortDir === 'desc' ? -diff : diff
   })
 
@@ -40,14 +42,19 @@ export default function AppTable({ apps }: Props) {
       <table className="min-w-full text-sm">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
-            <th className="px-4 py-3 text-left font-medium text-gray-600 w-12">ランク</th>
+            <th
+              className="px-4 py-3 text-left font-medium text-gray-600 w-12 cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap"
+              onClick={() => handleSort('rankingPosition', 'asc')}
+            >
+              ランク{arrow('rankingPosition')}
+            </th>
             <th className="px-4 py-3 text-left font-medium text-gray-600">アプリ名</th>
             <th className="px-4 py-3 text-left font-medium text-gray-600">開発者</th>
-            {SORT_COLUMNS.map(({ key, label }) => (
+            {SORT_COLUMNS.map(({ key, label, defaultDir }) => (
               <th
                 key={key}
                 className="px-4 py-3 text-right font-medium text-gray-600 cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap"
-                onClick={() => handleSort(key)}
+                onClick={() => handleSort(key, defaultDir)}
               >
                 {label}
                 {arrow(key)}
@@ -56,7 +63,7 @@ export default function AppTable({ apps }: Props) {
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {sorted.map((app, i) => (
+          {sorted.map((app) => (
             <tr key={app.trackId} className="hover:bg-gray-50 transition-colors">
               <td className="px-4 py-3 text-gray-400 text-sm font-medium">{app.rankingPosition ?? '-'}</td>
               <td className="px-4 py-3">
