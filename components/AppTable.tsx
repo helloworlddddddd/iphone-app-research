@@ -12,11 +12,15 @@ const SORT_COLUMNS: { key: SortKey; label: string; defaultDir: SortDir }[] = [
   { key: 'averageUserRating', label: '評価', defaultDir: 'desc' },
 ]
 
+function toNum(v: string | number | null | undefined): number {
+  if (v == null) return Infinity
+  if (typeof v === 'string') return new Date(v).getTime() || Infinity
+  return v
+}
+
 function downloadJson(apps: AppRecord[], sortKey: SortKey, sortDir: SortDir) {
   const sorted = [...apps].sort((a, b) => {
-    const av = a[sortKey] ?? Infinity
-    const bv = b[sortKey] ?? Infinity
-    const diff = (av as number) - (bv as number)
+    const diff = toNum(a[sortKey]) - toNum(b[sortKey])
     return sortDir === 'desc' ? -diff : diff
   })
   const data = sorted.map((app) => ({
@@ -57,9 +61,7 @@ export default function AppTable({ apps }: Props) {
   }
 
   const sorted = [...apps].sort((a, b) => {
-    const av = a[sortKey] ?? Infinity
-    const bv = b[sortKey] ?? Infinity
-    const diff = (av as number) - (bv as number)
+    const diff = toNum(a[sortKey]) - toNum(b[sortKey])
     return sortDir === 'desc' ? -diff : diff
   })
 
@@ -102,8 +104,18 @@ export default function AppTable({ apps }: Props) {
               </th>
             ))}
             <th className="px-4 py-3 text-right font-medium text-gray-600 whitespace-nowrap">現Ver評価</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-600 whitespace-nowrap">初回リリース</th>
-            <th className="px-4 py-3 text-right font-medium text-gray-600 whitespace-nowrap">現Ver更新日</th>
+            <th
+              className="px-4 py-3 text-right font-medium text-gray-600 cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap"
+              onClick={() => handleSort('releaseDate', 'desc')}
+            >
+              初回リリース{arrow('releaseDate')}
+            </th>
+            <th
+              className="px-4 py-3 text-right font-medium text-gray-600 cursor-pointer select-none hover:bg-gray-100 whitespace-nowrap"
+              onClick={() => handleSort('currentVersionReleaseDate', 'desc')}
+            >
+              現Ver更新日{arrow('currentVersionReleaseDate')}
+            </th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">

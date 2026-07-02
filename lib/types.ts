@@ -68,6 +68,12 @@ export type AppRecord = {
 
 export type SortKey = keyof Pick<
   AppRecord,
-  'rankingPosition' | 'userRatingCount' | 'recentReviewIncrease' | 'price' | 'averageUserRating'
+  | 'rankingPosition'
+  | 'userRatingCount'
+  | 'recentReviewIncrease'
+  | 'price'
+  | 'averageUserRating'
+  | 'releaseDate'
+  | 'currentVersionReleaseDate'
 >
 export type SortDir = 'asc' | 'desc'
