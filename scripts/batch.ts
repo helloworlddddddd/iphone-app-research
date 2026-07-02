@@ -3,8 +3,8 @@ config({ path: '.env.local' })
 import { fetchRankingIds } from '../lib/rss'
 import { batchLookup, type ItunesApp } from '../lib/itunes'
 import { createServiceClient } from '../lib/supabase'
+import { GENRES } from '../lib/genres'
 
-const GENRE_ID = 6007 // 仕事効率化
 const ARCHIVE_DAYS = 14
 
 function toDbRow(app: ItunesApp) {
@@ -57,10 +57,11 @@ function toDbRow(app: ItunesApp) {
   }
 }
 
-function toSnapshotRow(app: ItunesApp, capturedAt: string) {
+function toSnapshotRow(app: ItunesApp, capturedAt: string, genreId: number) {
   return {
     track_id:                                   app.trackId,
     captured_at:                                capturedAt,
+    genre_id:                                   genreId,
     user_rating_count:                          app.userRatingCount ?? null,
     average_user_rating:                        app.averageUserRating ?? null,
     user_rating_count_for_current_version:      app.userRatingCountForCurrentVersion ?? null,
@@ -98,41 +99,52 @@ async function archiveOldSnapshots(supabase: ReturnType<typeof createServiceClie
   console.log(`アーカイブ済み: ${old.length} 件 (${cutoffStr} より前)`)
 }
 
-async function main() {
-  const supabase = createServiceClient()
-  const today = new Date().toISOString().split('T')[0]
+async function processGenre(
+  supabase: ReturnType<typeof createServiceClient>,
+  genre: { id: number; name: string },
+  today: string
+) {
+  console.log(`\n[${genre.name} (${genre.id})]`)
 
-  // 1. RSS からアプリID取得
-  console.log(`[1/4] RSS フィード取得 (genre=${GENRE_ID})...`)
-  const trackIds = await fetchRankingIds(GENRE_ID)
-  console.log(`      → ${trackIds.length} 件`)
+  const trackIds = await fetchRankingIds(genre.id)
+  console.log(`  RSS: ${trackIds.length} 件`)
 
-  // 2. iTunes API でバッチ取得
-  console.log('[2/4] iTunes Search API でデータ取得...')
   const apps = await batchLookup(trackIds)
   const paidApps = apps.filter((a) => a.price > 0)
-  console.log(`      → ${apps.length} 件取得 / 有料: ${paidApps.length} 件`)
+  console.log(`  iTunes: ${apps.length} 件 / 有料: ${paidApps.length} 件`)
 
-  // 3. apps テーブルに upsert
-  console.log('[3/4] apps テーブルに upsert...')
+  if (paidApps.length === 0) return
+
   const { error: upsertErr } = await supabase
     .from('apps')
     .upsert(paidApps.map(toDbRow), { onConflict: 'track_id' })
   if (upsertErr) throw upsertErr
-  console.log(`      → ${paidApps.length} 件`)
 
-  // 4. app_snapshots に当日分を insert
-  console.log('[4/4] スナップショット保存...')
   const { error: snapErr } = await supabase
     .from('app_snapshots')
-    .upsert(paidApps.map((a) => toSnapshotRow(a, today)), { onConflict: 'track_id,captured_at' })
+    .upsert(paidApps.map((a) => toSnapshotRow(a, today, genre.id)), {
+      onConflict: 'track_id,captured_at,genre_id',
+    })
   if (snapErr) throw snapErr
-  console.log(`      → ${paidApps.length} 件 (${today})`)
 
-  // 5. 古いスナップショットをアーカイブ
+  console.log(`  保存完了: ${paidApps.length} 件`)
+}
+
+async function main() {
+  const supabase = createServiceClient()
+  const today = new Date().toISOString().split('T')[0]
+
+  console.log(`バッチ開始: ${today}`)
+  console.log(`対象カテゴリ: ${GENRES.length} 件`)
+
+  for (const genre of GENRES) {
+    await processGenre(supabase, genre, today)
+  }
+
+  console.log('\nアーカイブ処理...')
   await archiveOldSnapshots(supabase)
 
-  console.log('バッチ完了')
+  console.log('\nバッチ完了')
 }
 
 main().catch((err) => {

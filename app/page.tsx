@@ -1,10 +1,13 @@
+import { Suspense } from 'react'
 import AppTable from '@/components/AppTable'
+import GenreSelector from '@/components/GenreSelector'
 import { createBrowserClient } from '@/lib/supabase'
+import { GENRES, DEFAULT_GENRE_ID } from '@/lib/genres'
 import type { AppRecord } from '@/lib/types'
 
-export const revalidate = 3600 // 1時間ごとにISR再生成
+export const revalidate = 3600
 
-async function fetchApps(): Promise<AppRecord[]> {
+async function fetchApps(genreId: number): Promise<AppRecord[]> {
   const supabase = createBrowserClient()
 
   const today = new Date().toISOString().slice(0, 10)
@@ -36,12 +39,12 @@ async function fetchApps(): Promise<AppRecord[]> {
       )
     `)
     .eq('captured_at', today)
+    .eq('genre_id', genreId)
     .order('user_rating_count', { ascending: false })
 
   if (error) throw new Error(error.message)
   if (!data || data.length === 0) return []
 
-  // 14日前の総レビュー数を取得して増加数を計算
   const trackIds = data.map((r) => r.track_id)
   const fourteenDaysAgo = new Date()
   fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
@@ -51,6 +54,7 @@ async function fetchApps(): Promise<AppRecord[]> {
     .from('app_snapshots')
     .select('track_id, user_rating_count, captured_at')
     .in('track_id', trackIds)
+    .eq('genre_id', genreId)
     .gte('captured_at', from)
     .lt('captured_at', today)
     .order('captured_at', { ascending: true })
@@ -117,16 +121,28 @@ async function fetchApps(): Promise<AppRecord[]> {
   })
 }
 
-export default async function Page() {
-  const apps = await fetchApps()
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ genre?: string }>
+}) {
+  const { genre } = await searchParams
+  const genreId = parseInt(genre ?? String(DEFAULT_GENRE_ID), 10)
+  const genreName = GENRES.find((g) => g.id === genreId)?.name ?? '仕事効率化'
+  const apps = await fetchApps(genreId)
 
   return (
     <main className="p-8 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">アプリ市場リサーチ</h1>
-        <p className="text-gray-500 mt-1">
-          カテゴリ：仕事効率化 &nbsp;·&nbsp; 有料アプリのみ &nbsp;·&nbsp; {apps.length} 件
-        </p>
+        <div className="flex items-center gap-4 mt-2">
+          <Suspense>
+            <GenreSelector />
+          </Suspense>
+          <p className="text-gray-500 text-sm">
+            {genreName} &nbsp;·&nbsp; 有料アプリのみ &nbsp;·&nbsp; {apps.length} 件
+          </p>
+        </div>
       </div>
       <AppTable apps={apps} />
     </main>
