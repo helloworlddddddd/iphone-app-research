@@ -123,7 +123,12 @@ export default function AppTable({ apps }: Props) {
             <tr key={app.trackId} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
               <td className="px-4 py-3 text-gray-400 text-sm font-medium">{app.rankingPosition ?? '-'}</td>
               <td className="px-4 py-3">
-                <div className="flex items-start gap-3">
+                <a
+                  href={app.trackViewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-start gap-3 hover:opacity-75 transition-opacity"
+                >
                   <img
                     src={app.artworkUrl100}
                     alt=""
@@ -133,7 +138,7 @@ export default function AppTable({ apps }: Props) {
                     <div className="font-medium text-gray-900 dark:text-white">{app.trackName}</div>
                     <div className="text-xs text-gray-400 mt-0.5 max-w-xs line-clamp-2">{app.description}</div>
                   </div>
-                </div>
+                </a>
               </td>
               <td className="px-4 py-3 text-gray-500">{app.sellerName}</td>
               <td className="px-4 py-3 text-right font-medium">{app.userRatingCount.toLocaleString()}</td>
