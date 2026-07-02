@@ -1,0 +1,141 @@
+import { config } from 'dotenv'
+config({ path: '.env.local' })
+import { fetchRankingIds } from '../lib/rss'
+import { batchLookup, type ItunesApp } from '../lib/itunes'
+import { createServiceClient } from '../lib/supabase'
+
+const GENRE_ID = 6007 // 仕事効率化
+const ARCHIVE_DAYS = 14
+
+function toDbRow(app: ItunesApp) {
+  return {
+    track_id:                                   app.trackId,
+    bundle_id:                                  app.bundleId ?? null,
+    track_name:                                 app.trackName,
+    track_censored_name:                        app.trackCensoredName ?? null,
+    track_view_url:                             app.trackViewUrl ?? null,
+    description:                                app.description ?? null,
+    release_notes:                              app.releaseNotes ?? null,
+    version:                                    app.version ?? null,
+    kind:                                       app.kind ?? null,
+    wrapper_type:                               app.wrapperType ?? null,
+    artist_id:                                  app.artistId ?? null,
+    artist_name:                                app.artistName ?? null,
+    seller_name:                                app.sellerName ?? null,
+    seller_url:                                 app.sellerUrl ?? null,
+    artist_view_url:                            app.artistViewUrl ?? null,
+    price:                                      app.price,
+    formatted_price:                            app.formattedPrice ?? null,
+    currency:                                   app.currency ?? null,
+    is_vpp_device_based_licensing_enabled:      app.isVppDeviceBasedLicensingEnabled ?? null,
+    user_rating_count:                          app.userRatingCount ?? null,
+    average_user_rating:                        app.averageUserRating ?? null,
+    user_rating_count_for_current_version:      app.userRatingCountForCurrentVersion ?? null,
+    average_user_rating_for_current_version:    app.averageUserRatingForCurrentVersion ?? null,
+    primary_genre_id:                           app.primaryGenreId ?? null,
+    primary_genre_name:                         app.primaryGenreName ?? null,
+    genres:                                     app.genres ?? null,
+    genre_ids:                                  app.genreIds ?? null,
+    artwork_url_60:                             app.artworkUrl60 ?? null,
+    artwork_url_100:                            app.artworkUrl100 ?? null,
+    artwork_url_512:                            app.artworkUrl512 ?? null,
+    screenshot_urls:                            app.screenshotUrls ?? null,
+    ipad_screenshot_urls:                       app.ipadScreenshotUrls ?? null,
+    appletv_screenshot_urls:                    app.appletvScreenshotUrls ?? null,
+    release_date:                               app.releaseDate ?? null,
+    current_version_release_date:               app.currentVersionReleaseDate ?? null,
+    minimum_os_version:                         app.minimumOsVersion ?? null,
+    file_size_bytes:                            app.fileSizeBytes ?? null,
+    supported_devices:                          app.supportedDevices ?? null,
+    features:                                   app.features ?? null,
+    language_codes_iso2a:                       app.languageCodesISO2A ?? null,
+    is_game_center_enabled:                     app.isGameCenterEnabled ?? null,
+    content_advisory_rating:                    app.contentAdvisoryRating ?? null,
+    track_content_rating:                       app.trackContentRating ?? null,
+    advisories:                                 app.advisories ?? null,
+    updated_at:                                 new Date().toISOString(),
+  }
+}
+
+function toSnapshotRow(app: ItunesApp, capturedAt: string) {
+  return {
+    track_id:                                   app.trackId,
+    captured_at:                                capturedAt,
+    user_rating_count:                          app.userRatingCount ?? null,
+    average_user_rating:                        app.averageUserRating ?? null,
+    user_rating_count_for_current_version:      app.userRatingCountForCurrentVersion ?? null,
+    average_user_rating_for_current_version:    app.averageUserRatingForCurrentVersion ?? null,
+    price:                                      app.price,
+    formatted_price:                            app.formattedPrice ?? null,
+    version:                                    app.version ?? null,
+    current_version_release_date:               app.currentVersionReleaseDate ?? null,
+    release_notes:                              app.releaseNotes ?? null,
+  }
+}
+
+async function archiveOldSnapshots(supabase: ReturnType<typeof createServiceClient>) {
+  const cutoff = new Date()
+  cutoff.setDate(cutoff.getDate() - ARCHIVE_DAYS)
+  const cutoffStr = cutoff.toISOString().split('T')[0]
+
+  const { data: old, error: fetchErr } = await supabase
+    .from('app_snapshots')
+    .select('*')
+    .lt('captured_at', cutoffStr)
+
+  if (fetchErr) throw fetchErr
+  if (!old || old.length === 0) return
+
+  const { error: insertErr } = await supabase.from('app_snapshots_archive').insert(old)
+  if (insertErr) throw insertErr
+
+  const { error: deleteErr } = await supabase
+    .from('app_snapshots')
+    .delete()
+    .lt('captured_at', cutoffStr)
+  if (deleteErr) throw deleteErr
+
+  console.log(`アーカイブ済み: ${old.length} 件 (${cutoffStr} より前)`)
+}
+
+async function main() {
+  const supabase = createServiceClient()
+  const today = new Date().toISOString().split('T')[0]
+
+  // 1. RSS からアプリID取得
+  console.log(`[1/4] RSS フィード取得 (genre=${GENRE_ID})...`)
+  const trackIds = await fetchRankingIds(GENRE_ID)
+  console.log(`      → ${trackIds.length} 件`)
+
+  // 2. iTunes API でバッチ取得
+  console.log('[2/4] iTunes Search API でデータ取得...')
+  const apps = await batchLookup(trackIds)
+  const paidApps = apps.filter((a) => a.price > 0)
+  console.log(`      → ${apps.length} 件取得 / 有料: ${paidApps.length} 件`)
+
+  // 3. apps テーブルに upsert
+  console.log('[3/4] apps テーブルに upsert...')
+  const { error: upsertErr } = await supabase
+    .from('apps')
+    .upsert(paidApps.map(toDbRow), { onConflict: 'track_id' })
+  if (upsertErr) throw upsertErr
+  console.log(`      → ${paidApps.length} 件`)
+
+  // 4. app_snapshots に当日分を insert
+  console.log('[4/4] スナップショット保存...')
+  const { error: snapErr } = await supabase
+    .from('app_snapshots')
+    .upsert(paidApps.map((a) => toSnapshotRow(a, today)), { onConflict: 'track_id,captured_at' })
+  if (snapErr) throw snapErr
+  console.log(`      → ${paidApps.length} 件 (${today})`)
+
+  // 5. 古いスナップショットをアーカイブ
+  await archiveOldSnapshots(supabase)
+
+  console.log('バッチ完了')
+}
+
+main().catch((err) => {
+  console.error(err)
+  process.exit(1)
+})
