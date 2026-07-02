@@ -40,7 +40,7 @@ export default function AppTable({ apps }: Props) {
       <table className="min-w-full text-sm">
         <thead>
           <tr className="bg-gray-50 border-b border-gray-200">
-            <th className="px-4 py-3 text-left font-medium text-gray-600 w-8">#</th>
+            <th className="px-4 py-3 text-left font-medium text-gray-600 w-12">ランク</th>
             <th className="px-4 py-3 text-left font-medium text-gray-600">アプリ名</th>
             <th className="px-4 py-3 text-left font-medium text-gray-600">開発者</th>
             {SORT_COLUMNS.map(({ key, label }) => (
@@ -58,7 +58,7 @@ export default function AppTable({ apps }: Props) {
         <tbody className="divide-y divide-gray-100">
           {sorted.map((app, i) => (
             <tr key={app.trackId} className="hover:bg-gray-50 transition-colors">
-              <td className="px-4 py-3 text-gray-400 text-xs">{i + 1}</td>
+              <td className="px-4 py-3 text-gray-400 text-sm font-medium">{i + 1}</td>
               <td className="px-4 py-3">
                 <div className="flex items-start gap-3">
                   <img
@@ -67,7 +67,7 @@ export default function AppTable({ apps }: Props) {
                     className="w-10 h-10 rounded-xl flex-shrink-0 mt-0.5"
                   />
                   <div>
-                    <div className="font-medium text-gray-900">{app.trackName}</div>
+                    <div className="font-medium text-gray-900 dark:text-white">{app.trackName}</div>
                     <div className="text-xs text-gray-400 mt-0.5 max-w-xs line-clamp-2">{app.description}</div>
                   </div>
                 </div>
