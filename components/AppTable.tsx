@@ -90,6 +90,7 @@ export default function AppTable({ apps }: Props) {
             </th>
             <th className="px-4 py-3 text-left font-medium text-gray-600">アプリ名</th>
             <th className="px-4 py-3 text-left font-medium text-gray-600">開発者</th>
+            <th className="px-4 py-3 text-right font-medium text-gray-600 whitespace-nowrap">現Verレビュー数</th>
             {SORT_COLUMNS.map(({ key, label, defaultDir }) => (
               <th
                 key={key}
@@ -100,6 +101,9 @@ export default function AppTable({ apps }: Props) {
                 {arrow(key)}
               </th>
             ))}
+            <th className="px-4 py-3 text-right font-medium text-gray-600 whitespace-nowrap">現Ver評価</th>
+            <th className="px-4 py-3 text-right font-medium text-gray-600 whitespace-nowrap">初回リリース</th>
+            <th className="px-4 py-3 text-right font-medium text-gray-600 whitespace-nowrap">現Ver更新日</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
@@ -121,6 +125,7 @@ export default function AppTable({ apps }: Props) {
               </td>
               <td className="px-4 py-3 text-gray-500">{app.sellerName}</td>
               <td className="px-4 py-3 text-right font-medium">{app.userRatingCount.toLocaleString()}</td>
+              <td className="px-4 py-3 text-right text-gray-500">{app.userRatingCountForCurrentVersion?.toLocaleString() ?? '-'}</td>
               <td className="px-4 py-3 text-right">
                 <span className="text-green-600 font-medium">+{app.recentReviewIncrease.toLocaleString()}</span>
               </td>
@@ -129,6 +134,13 @@ export default function AppTable({ apps }: Props) {
                 <span className="text-yellow-500">★</span>
                 <span className="ml-1">{app.averageUserRating.toFixed(1)}</span>
               </td>
+              <td className="px-4 py-3 text-right text-gray-500">
+                {app.averageUserRatingForCurrentVersion != null ? (
+                  <><span className="text-yellow-500">★</span><span className="ml-1">{app.averageUserRatingForCurrentVersion.toFixed(1)}</span></>
+                ) : '-'}
+              </td>
+              <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">{app.releaseDate ? app.releaseDate.slice(0, 10) : '-'}</td>
+              <td className="px-4 py-3 text-right text-gray-500 whitespace-nowrap">{app.currentVersionReleaseDate ? app.currentVersionReleaseDate.slice(0, 10) : '-'}</td>
             </tr>
           ))}
         </tbody>
